@@ -147,6 +147,9 @@ class ConfigEditorApp:
         self.aimbot_process: subprocess.Popen | None = None
         self.helper_process: subprocess.Popen | None = None
 
+        self.model_var = tk.StringVar(value="")
+        self.export_format_var = tk.StringVar(value="engine")
+
         self._build_layout()
         self.reload_config()
 
@@ -159,6 +162,21 @@ class ConfigEditorApp:
         ttk.Button(toolbar, text="Запустить Aimbot", command=self.start_aimbot).pack(side="left", padx=6)
         ttk.Button(toolbar, text="Остановить Aimbot", command=self.stop_aimbot).pack(side="left", padx=6)
         ttk.Button(toolbar, text="Запустить Helper GUI", command=self.start_helper_gui).pack(side="left", padx=6)
+
+        ttk.Separator(toolbar, orient="vertical").pack(side="left", fill="y", padx=8)
+
+        ttk.Label(toolbar, text="Модель:").pack(side="left")
+        self.model_combo = ttk.Combobox(toolbar, textvariable=self.model_var, width=24, state="readonly")
+        self.model_combo.pack(side="left", padx=4)
+
+        ttk.Label(toolbar, text="Экспорт:").pack(side="left", padx=(6, 0))
+        self.export_format_combo = ttk.Combobox(toolbar, textvariable=self.export_format_var, width=8, state="readonly", values=["engine", "onnx"])
+        self.export_format_combo.pack(side="left", padx=4)
+        self.export_format_combo.current(0)
+
+        ttk.Button(toolbar, text="Обновить модели", command=self.refresh_model_list).pack(side="left", padx=4)
+        ttk.Button(toolbar, text="Экспорт модели (F8)", command=self.export_selected_model).pack(side="left", padx=4)
+
         ttk.Button(toolbar, text="Exit", command=self.on_exit).pack(side="right")
 
         self.status_var = tk.StringVar(value="Готово")
@@ -169,6 +187,8 @@ class ConfigEditorApp:
 
         self.notebook = ttk.Notebook(content)
         self.notebook.pack(fill="both", expand=True, padx=8, pady=(0, 8))
+
+        self.root.bind("<F8>", lambda _e: self.export_selected_model())
 
     def _parse_value(self, raw_value: str):
         value = raw_value.strip()
@@ -246,6 +266,7 @@ class ConfigEditorApp:
         for section in self.config.sections():
             self._build_section_tab(section)
 
+        self.refresh_model_list()
         self.status_var.set(f"Загружен: {CONFIG_PATH.name}")
 
     def save_config(self):
@@ -287,9 +308,69 @@ class ConfigEditorApp:
         self.helper_process = subprocess.Popen([sys.executable, "-m", "streamlit", "run", "helper.py"], cwd=BASE_DIR)
         self.status_var.set("Helper GUI запущен")
 
+    def _models_dir(self):
+        return BASE_DIR / "models"
+
+    def refresh_model_list(self):
+        models_dir = self._models_dir()
+        models_dir.mkdir(exist_ok=True)
+        model_files = sorted([p.name for p in models_dir.glob("*.pt")])
+
+        self.model_combo["values"] = model_files
+
+        current_cfg_model = ""
+        if self.config.has_section("AI") and self.config.has_option("AI", "AI_model_name"):
+            current_cfg_model = self.config.get("AI", "AI_model_name")
+
+        if current_cfg_model in model_files:
+            self.model_var.set(current_cfg_model)
+        elif model_files:
+            self.model_var.set(model_files[0])
+        else:
+            self.model_var.set("")
+
+    def export_selected_model(self):
+        selected_model = self.model_var.get().strip()
+        if not selected_model:
+            messagebox.showwarning("Внимание", "Сначала выберите модель в выпадающем списке.")
+            return
+
+        model_path = self._models_dir() / selected_model
+        if not model_path.exists():
+            messagebox.showerror("Ошибка", f"Модель не найдена: {model_path}")
+            return
+
+        try:
+            self.save_config()
+
+            # синхронизируем выбор модели с config.ini
+            self.config.set("AI", "AI_model_name", selected_model)
+            with open(CONFIG_PATH, "w", encoding="utf-8") as config_file:
+                self.config.write(config_file)
+
+            from ultralytics import YOLO
+
+            export_format = self.export_format_var.get().strip() or "engine"
+            ai_size = int(self.config.get("AI", "AI_model_image_size", fallback="640"))
+            ai_device = self.config.get("AI", "AI_device", fallback="cpu")
+
+            self.status_var.set(f"Экспорт {selected_model} -> {export_format}...")
+            self.root.update_idletasks()
+
+            model = YOLO(str(model_path))
+            result_path = model.export(format=export_format, imgsz=ai_size, device=ai_device)
+
+            self.status_var.set("Экспорт завершен")
+            messagebox.showinfo("Готово", f"Экспорт завершен:\n{result_path}")
+        except Exception as exc:
+            self.status_var.set("Ошибка экспорта")
+            messagebox.showerror("Ошибка экспорта", str(exc))
+
     def on_exit(self):
         if self.aimbot_process and self.aimbot_process.poll() is None:
             self.aimbot_process.terminate()
+        if self.helper_process and self.helper_process.poll() is None:
+            self.helper_process.terminate()
         self.root.destroy()
 
 
