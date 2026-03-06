@@ -19,7 +19,7 @@ class Target:
 
 class FrameParser:
     def __init__(self):
-        self.arch = self.get_arch()
+        pass
 
     def parse(self, result):
         if isinstance(result, sv.Detections):
@@ -69,31 +69,34 @@ class FrameParser:
                 visuals.clear()
 
     def sort_targets(self, frame):
+        arch = self.get_arch()
+
         if isinstance(frame, sv.Detections):
-            boxes_array, classes_tensor = self._convert_sv_to_tensor(frame)
+            boxes_array, classes_tensor = self._convert_sv_to_tensor(frame, arch)
         else:
-            boxes_array = frame.boxes.xywh.to(self.arch)
-            classes_tensor = frame.boxes.cls.to(self.arch)
-        
+            boxes_array = frame.boxes.xywh.to(arch)
+            classes_tensor = frame.boxes.cls.to(arch)
+
         if not classes_tensor.numel():
             return None
 
-        return self._find_nearest_target(boxes_array, classes_tensor)
+        return self._find_nearest_target(boxes_array, classes_tensor, arch)
 
-    def _convert_sv_to_tensor(self, frame):
-        xyxy = frame.xyxy
-        xywh = torch.tensor([
-            (xyxy[:, 0] + xyxy[:, 2]) / 2,  
-            (xyxy[:, 1] + xyxy[:, 3]) / 2,  
-            xyxy[:, 2] - xyxy[:, 0],        
-            xyxy[:, 3] - xyxy[:, 1]        
-        ], dtype=torch.float32).to(self.arch).T
-        
-        classes_tensor = torch.from_numpy(np.array(frame.class_id, dtype=np.float32)).to(self.arch)
+    def _convert_sv_to_tensor(self, frame, arch):
+        xyxy = frame.xyxy.astype(np.float32)
+        xywh_np = np.column_stack((
+            (xyxy[:, 0] + xyxy[:, 2]) / 2,
+            (xyxy[:, 1] + xyxy[:, 3]) / 2,
+            xyxy[:, 2] - xyxy[:, 0],
+            xyxy[:, 3] - xyxy[:, 1],
+        ))
+        xywh = torch.from_numpy(xywh_np).to(arch)
+
+        classes_tensor = torch.from_numpy(np.asarray(frame.class_id, dtype=np.float32)).to(arch)
         return xywh, classes_tensor
 
-    def _find_nearest_target(self, boxes_array, classes_tensor):
-        center = torch.tensor([capture.screen_x_center, capture.screen_y_center], device=self.arch)
+    def _find_nearest_target(self, boxes_array, classes_tensor, arch):
+        center = torch.tensor([capture.screen_x_center, capture.screen_y_center], device=arch)
         distances_sq = torch.sum((boxes_array[:, :2] - center) ** 2, dim=1)
         weights = torch.ones_like(distances_sq)
 
@@ -122,11 +125,17 @@ class FrameParser:
         return Target(*target_data, target_class)
 
     def get_arch(self):
+        ai_device = str(cfg.AI_device).lower()
+
         if cfg.AI_enable_AMD:
             return f'hip:{cfg.AI_device}'
-        elif 'cpu' in cfg.AI_device:
+
+        if 'cpu' in ai_device:
             return 'cpu'
-        else:
-            return f'cuda:{cfg.AI_device}'
+
+        if torch.cuda.is_available() is False:
+            return 'cpu'
+
+        return f'cuda:{cfg.AI_device}'
 
 frameParser = FrameParser()
