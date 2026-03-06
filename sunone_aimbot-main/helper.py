@@ -622,14 +622,14 @@ elif st.session_state.current_tab == "CONFIG":
         
         config.set('Capture Methods', 'Bettercam_capture', "True")
         config.set('Capture Methods', 'Obs_capture', "False")
-        config.set('Capture Methods', 'Obs_capture', "False")
+        config.set('Capture Methods', 'mss_capture', "False")
         config.set('Capture Methods', 'bettercam_monitor_id', str(bettercam_monitor_id))
         config.set('Capture Methods', 'bettercam_gpu_id', str(bettercam_gpu_id))
         
     if selected_capture_method == "mss":
         config.set('Capture Methods', 'Bettercam_capture', "False")
         config.set('Capture Methods', 'Obs_capture', "False")
-        config.set('Capture Methods', 'Mss_capture', "True")
+        config.set('Capture Methods', 'mss_capture', "True")
 
     if selected_capture_method == "OBS":
         obs_camera_id = st.selectbox(
@@ -1116,7 +1116,7 @@ elif st.session_state.current_tab == "CONFIG":
         config.set('Debug window', 'debug_window_scale_percent', str(debug_window_scale_percent))
         config.set('Debug window', 'debug_window_screenshot_key', str(debug_window_screenshot_key))
     else:
-        config.set('Debug window', 'show_wpip indow', "False")
+        config.set('Debug window', 'show_window', "False")
 
     st.subheader("Advanced numeric settings", divider=True)
     st.caption("Universal editor for all numeric values from config.ini (int/float).")
