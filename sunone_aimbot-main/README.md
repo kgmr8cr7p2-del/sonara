@@ -32,6 +32,7 @@ Before you get started, make sure you have the following prerequisites installed
 
 <br></br>
 - To launch the aimbot after all installations, start run_ai.bat or type `py run.py`.
+- To open the full desktop GUI config editor, start `run_config_gui.bat` (or run `py config_gui.py`).
 
 # Use the new C++ version of the AI-Aimbot!
 - [Sunone_aimbot_cpp](https://github.com/SunOner/sunone_aimbot_cpp): The Python version is good, but C++ is even better. It has an overlay, is faster, and much more. Currently, it is updated much more frequently than the Python version. It's better to use the C++ version.
