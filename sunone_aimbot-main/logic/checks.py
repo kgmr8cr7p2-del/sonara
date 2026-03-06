@@ -75,14 +75,16 @@ def Warnings():
 
 def run_checks():
     os.makedirs("screenshots", exist_ok=True)
-    
+
     if torch.cuda.is_available() is False:
-        logger.error("You need to install a version of pytorch that supports CUDA.\n"
-            "First uninstall all torch packages.\n"
-            "Run command 'pip uninstall torch torchvision torchaudio'\n"
-            "Next go to 'https://pytorch.org/get-started/locally/' and install torch with CUDA support.\n"
-            "Don't forget your CUDA version (Minimum version is 12.1).")
-        quit()
+        if cfg.AI_device.lower() != "cpu":
+            logger.warning(
+                "CUDA is not available. Switching AI_device to CPU mode automatically. "
+                "For better performance, install PyTorch with CUDA support and set AI_device back to your GPU."
+            )
+            cfg.AI_device = "cpu"
+        else:
+            logger.warning("CUDA is not available. Running in CPU mode.")
         
     if + cfg.mss_capture + cfg.Bettercam_capture + cfg.Obs_capture < 1:
         logger.error("Use at least one image capture method.\nSet the value to `True` in the `bettercam_capture` option or in the `obs_capture` option or in the `mss_capture` option.")

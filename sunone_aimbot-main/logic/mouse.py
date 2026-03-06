@@ -236,15 +236,15 @@ class MouseThread:
         self.center_y = self.screen_height / 2
 
     def visualize_target(self, target_x, target_y, target_cls):
-        if (cfg.show_window and cfg.show_target_line) or (cfg.show_overlay and cfg.show_target_line):
+        if (cfg.show_window and cfg.show_target_line) or (cfg.show_overlay and cfg.overlay_show_target_line):
             visuals.draw_target_line(target_x, target_y, target_cls)
 
     def visualize_prediction(self, target_x, target_y, target_cls):
-        if (cfg.show_window and cfg.show_target_prediction_line) or (cfg.show_overlay and cfg.show_target_prediction_line):
+        if (cfg.show_window and cfg.show_target_prediction_line) or (cfg.show_overlay and cfg.overlay_show_target_prediction_line):
             visuals.draw_predicted_position(target_x, target_y, target_cls)
 
     def visualize_history(self, target_x, target_y):
-        if (cfg.show_window and cfg.show_history_points) or (cfg.show_overlay and cfg.show_history_points):
+        if cfg.show_window and cfg.show_history_points:
             visuals.draw_history_point_add_point(target_x, target_y)
 
 mouse = MouseThread()

@@ -558,6 +558,21 @@ elif st.session_state.current_tab == "CONFIG":
 
     config = load_config()
 
+    def is_bool_string(value):
+        return value.strip().lower() in {"true", "false"}
+
+    def parse_numeric_value(raw_value):
+        value = raw_value.strip()
+        if is_bool_string(value):
+            return None
+
+        try:
+            if any(ch in value.lower() for ch in [".", "e"]):
+                return float(value), "float"
+            return int(value), "int"
+        except ValueError:
+            return None
+
     # Detection window
     st.subheader(body="Detection window", divider=True)
     detection_window_width = st.number_input(
@@ -607,14 +622,14 @@ elif st.session_state.current_tab == "CONFIG":
         
         config.set('Capture Methods', 'Bettercam_capture', "True")
         config.set('Capture Methods', 'Obs_capture', "False")
-        config.set('Capture Methods', 'Obs_capture', "False")
+        config.set('Capture Methods', 'mss_capture', "False")
         config.set('Capture Methods', 'bettercam_monitor_id', str(bettercam_monitor_id))
         config.set('Capture Methods', 'bettercam_gpu_id', str(bettercam_gpu_id))
         
     if selected_capture_method == "mss":
         config.set('Capture Methods', 'Bettercam_capture', "False")
         config.set('Capture Methods', 'Obs_capture', "False")
-        config.set('Capture Methods', 'Mss_capture', "True")
+        config.set('Capture Methods', 'mss_capture', "True")
 
     if selected_capture_method == "OBS":
         obs_camera_id = st.selectbox(
@@ -1101,7 +1116,35 @@ elif st.session_state.current_tab == "CONFIG":
         config.set('Debug window', 'debug_window_scale_percent', str(debug_window_scale_percent))
         config.set('Debug window', 'debug_window_screenshot_key', str(debug_window_screenshot_key))
     else:
-        config.set('Debug window', 'show_wpip indow', "False")
+        config.set('Debug window', 'show_window', "False")
+
+    st.subheader("Advanced numeric settings", divider=True)
+    st.caption("Universal editor for all numeric values from config.ini (int/float).")
+
+    with st.expander("Show all numeric settings", expanded=False):
+        for section in config.sections():
+            numeric_options = []
+
+            for option, raw_value in config.items(section):
+                parsed = parse_numeric_value(raw_value)
+                if parsed is not None:
+                    numeric_options.append((option, *parsed))
+
+            if not numeric_options:
+                continue
+
+            st.markdown(f"**[{section}]**")
+
+            for option, value, value_type in numeric_options:
+                widget_key = f"config_numeric_{section}_{option}"
+                label = f"{option}"
+
+                if value_type == "int":
+                    updated = st.number_input(label=label, value=int(value), step=1, key=widget_key)
+                    config.set(section, option, str(int(updated)))
+                else:
+                    updated = st.number_input(label=label, value=float(value), format="%.6f", key=widget_key)
+                    config.set(section, option, str(float(updated)))
 
     with st.sidebar:
         if st.button('Save Config', key="sidebar_config_save_button"):
